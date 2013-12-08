@@ -1,0 +1,186 @@
+#!/bin/bash
+
+#
+# Housekeeping
+#
+
+hosts_file=/etc/hosts
+www_folder=/Library/Webserver/Sites
+conf_folder=/etc/apache2/extra/sites
+server_reboot="apachectl graceful"
+
+#
+# Functions
+#
+
+function usage {
+  echo -e "usage: $0 <COMMAND> <VHOST>\n"
+  echo -e "COMMAND:"
+  echo -e "  -c,  --command      Options: add, remove"
+  echo -e "HOST:"
+  echo -e "  -v,  --vhost VALUE  Vhost name"
+  echo -e "OPTIONAL:"
+  echo -e "  -h,  --help         Prints this help"
+  echo -e "  -f,  --force        Forces removal of website data"
+  echo -e "  -a,  --apache       Restarts apache afterwards"
+  echo -e "  -l,  --list         Lists available vhosts"
+  echo -e "EXAMPLE:"
+  echo -e "  $0 -a add -v example.dev"
+}
+
+# createSitesRoot
+# Adds directory in /Library/Webserver/Sites/
+# if it doesn't already exist
+
+function createSitesRoot {
+  if [ -d $www_folder/$vhost ]; then
+    echo "- Directory $vhost already exists."
+    echo "- index.html creation skipped."
+  else 
+    mkdir $www_folder/$vhost 
+    echo "✔ Directory $vhost created."
+    touch $www_folder/$vhost/index.html 
+    echo 'yup' >> $www_folder/$vhost/index.html 
+    echo "✔ index.html created."
+  fi
+}
+
+# createSitesConf
+# Adds config file to /etc/apache2/extra/sites/
+
+function createSitesConf {
+  if [ -a $conf_folder/$vhost.conf ]; then
+    echo "- $vhost.conf already exists."
+  else 
+    touch $conf_folder/$vhost.conf
+
+    cat <<EOF >> $conf_folder/$vhost.conf
+<VirtualHost *:80>
+    ServerName "$vhost"
+    DocumentRoot "$www_folder/$vhost"
+    <Directory "$www_folder/$vhost">
+        Allow From All
+        AllowOverride All
+    </Directory>
+</VirtualHost>
+EOF
+
+    echo "✔ $vhost.conf created."
+  fi
+}
+
+# addHosts
+# Adds site to etc/hosts
+
+function addHosts {
+  if grep -Fxq "127.0.0.1 $vhost" $hosts_file; then
+    echo "- 127.0.0.1 $vhost already exists in $hosts_file."
+  else 
+    echo "127.0.0.1 $vhost" >> $hosts_file
+    echo "✔ $hosts_file updated."
+  fi
+}
+
+function addVhost {
+  echo "Adding Directory $www_folder/$vhost..."
+  createSitesRoot
+
+  echo "Adding Directory $vhost.conf to $conf_folder..."
+  createSitesConf
+
+  echo "Adding $vhost to $hosts_file..."
+  addHosts
+}
+
+function removeVhost {
+  # Remove sitename.dev in /Library/Webserver/Sites/
+  echo "Removing Directory $www_folder/$vhost..."
+  if [ $forceDelete == false ]; then
+    if [ -d $www_folder/$vhost ]; then
+      read -p "Do you want to remove $www_folder/$vhost? This is irreversible and your files will be gone. [yn]" answer
+      if [[ $answer = y ]] ; then
+        rm -rf $www_folder/$vhost
+      fi
+    fi
+  else 
+    rm -rf $www_folder/$vhost
+  fi 
+
+  # Remove sitename.dev.conf from /etc/apache2/extra/sites/
+  echo "Removing Directory $vhost.conf from $conf_folder..."
+  rm -f $conf_folder/$vhost.conf
+
+  # Remove sitename.dev from etc/hosts
+  echo "Removing $vhost from $hosts_file..."
+  sed -i '.bak' '/127.0.0.1 '$vhost'/ d' $hosts_file
+}
+
+forceDelete=false
+restartApache=false
+
+if [ $# == 0 ]; then
+  echo -e "Called with no parameter!" && usage && exit 1
+fi
+
+# Parameter loop
+while [ "$1" != "" ];
+do
+  case "$1" in
+    -c | --command)
+      [[ -z $2 || $2 =~ ^-.* ]] && echo "Called without <COMMAND> parameter!" && usage && exit 0
+      cmd="$2"
+      shift 2
+      ;;
+    -v | --vhost)
+      [[ -z $2 || $2 =~ ^-.* ]] && echo "Called without <VHOST> parameter!" && usage && exit 0
+      vhost="$2"
+      shift 2
+      ;;
+    -h | --help)
+      usage && exit 0
+      ;;
+    -f | --force)
+      forceDelete=true
+      shift
+      ;;
+    -l | --list)
+      www_folderEscaped=$(echo $www_folder | sed 's/\//\\\//g')
+      for i in $(ls -d $www_folder/*/ ); do 
+        echo ${i%%/} | sed 's/'$www_folderEscaped'\///g'; #
+      done 
+      exit 0
+      ;;
+    -a | --apache)
+      restartApache=true
+      shift
+      ;;
+    -*)
+      echo "Error: Unknown option: $1" >&2 && exit 1
+      ;;
+    *)  # No more options
+      break
+      ;;
+  esac
+done
+
+# Final checks
+if [[ "$cmd" != "add" ]] && [[ "$cmd" != "remove" ]]; then
+  echo "Called with wrong <COMMAND> parameter!" && usage && exit 1
+fi
+
+if [[ "$vhost" == "" ]]; then
+  echo "Called without <VHOST> parameter!" && usage && exit 1
+fi
+
+#echo -e vhost: $vhost '\n'command: $cmd
+
+if [ "$cmd" == "add" ]; then
+  addVhost
+elif [  "$cmd" == "remove" ]; then
+  removeVhost
+fi
+
+# Restart apache
+if [ "$restartApache" == true ]; then
+  apachectl graceful
+fi
