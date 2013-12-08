@@ -21,11 +21,13 @@ function usage {
   echo -e "  -v,  --vhost VALUE  Vhost name"
   echo -e "OPTIONAL:"
   echo -e "  -h,  --help         Prints this help"
-  echo -e "  -f,  --force        Forces removal of website data"
+  echo -e "  -f,  --force        Forces removal of project folder"
   echo -e "  -a,  --apache       Restarts apache afterwards"
   echo -e "  -l,  --list         Lists available vhosts"
-  echo -e "EXAMPLE:"
-  echo -e "  $0 -a add -v example.dev"
+  echo -e "EXAMPLES:"
+  echo -e "  $0 -c add -v example.dev        Adds example.dev vhost"
+  echo -e "  $0 -a -c add -v example.dev     Adds example.dev vhost and restarts apache"
+  echo -e "  $0 -f -c remove -v example.dev  Removes example.dev vhost, forces deletion of project folder"
 }
 
 # createSitesRoot
@@ -94,20 +96,21 @@ function addVhost {
 
 function removeVhost {
   # Remove sitename.dev in /Library/Webserver/Sites/
-  echo "Removing Directory $www_folder/$vhost..."
   if [ $forceDelete == false ]; then
     if [ -d $www_folder/$vhost ]; then
       read -p "Do you want to remove $www_folder/$vhost? This is irreversible and your files will be gone. [yn]" answer
       if [[ $answer = y ]] ; then
+        echo "Removing Directory $www_folder/$vhost..."
         rm -rf $www_folder/$vhost
       fi
     fi
   else 
+    echo "Removing Directory $www_folder/$vhost..."
     rm -rf $www_folder/$vhost
   fi 
 
   # Remove sitename.dev.conf from /etc/apache2/extra/sites/
-  echo "Removing Directory $vhost.conf from $conf_folder..."
+  echo "Removing $vhost.conf from $conf_folder..."
   rm -f $conf_folder/$vhost.conf
 
   # Remove sitename.dev from etc/hosts
