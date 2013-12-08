@@ -33,7 +33,7 @@ List vhosts:
 
     $ vhost -l
 
-### Advanced Usage
+## Advanced Usage
 
 Add vhost and restart apache:
 
