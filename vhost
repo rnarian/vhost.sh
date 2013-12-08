@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# Housekeeping
+# Settings
 #
 
 hosts_file=/etc/hosts
@@ -98,7 +98,8 @@ function removeVhost {
   # Remove sitename.dev in /Library/Webserver/Sites/
   if [ $forceDelete == false ]; then
     if [ -d $www_folder/$vhost ]; then
-      read -p "Do you want to remove $www_folder/$vhost? This is irreversible and your files will be gone. [yn]" answer
+      echo "Do you want to remove $www_folder/$vhost?"
+      read -p "This is irreversible and your files will be gone. [yn]`echo $'\n > '`" answer
       if [[ $answer = y ]] ; then
         echo "Removing Directory $www_folder/$vhost..."
         rm -rf $www_folder/$vhost
