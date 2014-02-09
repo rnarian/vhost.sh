@@ -2,8 +2,6 @@
 
 Bash script for managing (add/remove) apache vhosts. The Script creates a project directory, a vhost config file and updates `/etc/hosts`.
 
----
-
 Directories may be specified at the beginning of the script.
 
     hosts_file=/etc/hosts
