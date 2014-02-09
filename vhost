@@ -38,11 +38,11 @@ function createSitesRoot {
   if [ -d $www_folder/$vhost ]; then
     echo "- Directory $vhost already exists."
     echo "- index.html creation skipped."
-  else 
-    mkdir $www_folder/$vhost 
+  else
+    mkdir $www_folder/$vhost
     echo "✔ Directory $vhost created."
-    touch $www_folder/$vhost/index.html 
-    echo 'yup' >> $www_folder/$vhost/index.html 
+    touch $www_folder/$vhost/index.html
+    echo 'yup' >> $www_folder/$vhost/index.html
     echo "✔ index.html created."
   fi
 }
@@ -53,7 +53,7 @@ function createSitesRoot {
 function createSitesConf {
   if [ -a $conf_folder/$vhost.conf ]; then
     echo "- $vhost.conf already exists."
-  else 
+  else
     touch $conf_folder/$vhost.conf
 
     cat <<EOF >> $conf_folder/$vhost.conf
@@ -77,7 +77,7 @@ EOF
 function addHosts {
   if grep -Fxq "127.0.0.1 $vhost" $hosts_file; then
     echo "- 127.0.0.1 $vhost already exists in $hosts_file."
-  else 
+  else
     echo "127.0.0.1 $vhost" >> $hosts_file
     echo "✔ $hosts_file updated."
   fi
@@ -92,6 +92,8 @@ function addVhost {
 
   echo "Adding $vhost to $hosts_file..."
   addHosts
+
+  chown -R $realUser:staff $www_folder/$vhost
 }
 
 function removeVhost {
@@ -105,10 +107,10 @@ function removeVhost {
         rm -rf $www_folder/$vhost
       fi
     fi
-  else 
+  else
     echo "Removing Directory $www_folder/$vhost..."
     rm -rf $www_folder/$vhost
-  fi 
+  fi
 
   # Remove sitename.dev.conf from /etc/apache2/extra/sites/
   echo "Removing $vhost.conf from $conf_folder..."
@@ -121,6 +123,8 @@ function removeVhost {
 
 forceDelete=false
 restartApache=false
+user=$(whoami);
+realUser=$(logname);
 
 if [ $# == 0 ]; then
   echo -e "Called with no parameter!" && usage && exit 1
@@ -149,9 +153,9 @@ do
       ;;
     -l | --list)
       www_folderEscaped=$(echo $www_folder | sed 's/\//\\\//g')
-      for i in $(ls -d $www_folder/*/ ); do 
+      for i in $(ls -d $www_folder/*/ ); do
         echo ${i%%/} | sed 's/'$www_folderEscaped'\///g'; #
-      done 
+      done
       exit 0
       ;;
     -a | --apache)
@@ -176,15 +180,20 @@ if [[ "$vhost" == "" ]]; then
   echo "Called without <VHOST> parameter!" && usage && exit 1
 fi
 
-#echo -e vhost: $vhost '\n'command: $cmd
+if [[ "$user" != "root" ]]; then
+  echo "Needs to be called with sudo in order to update $hosts_file!" && usage && exit 1
+fi
 
+# Remove/Add vhost
 if [ "$cmd" == "add" ]; then
   addVhost
-elif [  "$cmd" == "remove" ]; then
+elif [ "$cmd" == "remove" ]; then
   removeVhost
 fi
 
 # Restart apache
 if [ "$restartApache" == true ]; then
+  echo "Restarting Apache."
   apachectl graceful
+  echo "✔ Apache restarted."
 fi
